@@ -281,46 +281,57 @@ video {
 
 .enable-gate {
   position: absolute;
-  top: 0;
   left: 0;
   right: 0;
-  bottom: 0;
-  background: rgba(0,0,0,0.9);
+  bottom: 60px;
+  background: rgba(0,20,40,0.95);
+  backdrop-filter: blur(8px);
+  border-top: 2px solid rgba(0,255,255,0.4);
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
-  justify-content: center;
+  justify-content: space-between;
+  gap: 16px;
   z-index: 40;
-  padding: 20px;
-  text-align: center;
+  padding: 12px 20px;
+  text-align: left;
+  pointer-events: none;
+  transition: opacity 0.3s, transform 0.3s;
+}
+
+.enable-gate.hidden {
+  opacity: 0;
+  transform: translateY(100%);
   pointer-events: none;
 }
 
 .enable-gate-title {
-  font-size: 24px;
+  font-size: 15px;
   font-weight: 600;
-  margin-bottom: 12px;
+  margin-bottom: 3px;
   color: #00ffff;
 }
 
 .enable-gate-text {
-  max-width: 400px;
-  margin-bottom: 20px;
-  color: rgba(255,255,255,0.8);
-  line-height: 1.6;
+  font-size: 13px;
+  color: rgba(255,255,255,0.7);
+  line-height: 1.4;
+  margin: 0;
 }
 
 .enable-gate-btn {
   background: linear-gradient(135deg, #00ffff 0%, #0080ff 100%);
   border: none;
   color: #000;
-  font-size: 16px;
+  font-size: 14px;
   font-weight: 600;
-  padding: 12px 32px;
+  padding: 8px 20px;
   border-radius: 6px;
   cursor: pointer;
-  transition: transform 0.2s;
+  transition: all 0.2s;
   pointer-events: auto;
+  white-space: nowrap;
+  flex-shrink: 0;
 }
 
 .enable-gate-btn:hover {
@@ -436,6 +447,9 @@ class GestureVideoPlayer extends HTMLElement {
         this._video.poster = this.getAttribute('poster');
       }
     }
+    
+    // Attach video listeners now that this._video is set
+    this._attachVideoListeners();
     
     this._updateUI();
     
@@ -556,12 +570,13 @@ class GestureVideoPlayer extends HTMLElement {
         </div>
         
         <div class="enable-gate">
-          <div class="enable-gate-title">Hand Control Available</div>
-          <div class="enable-gate-text">
-            Enable camera access to control video playback with hand gestures.
-            Your camera feed stays local—no data is uploaded.
+          <div>
+            <div class="enable-gate-title">✋ Hand Control Available</div>
+            <div class="enable-gate-text">
+              Control playback with gestures. Camera stays local—no data uploaded.
+            </div>
           </div>
-          <button class="enable-gate-btn">Enable Hand Control</button>
+          <button class="enable-gate-btn">Enable</button>
         </div>
       </div>
     `;
@@ -571,10 +586,12 @@ class GestureVideoPlayer extends HTMLElement {
     this._root = root;
   }
 
-  _setupEventListeners() {
+  _attachVideoListeners() {
+    if (!this._video || !this._root) return;
+    
     const root = this._root;
     
-    // Video event listeners
+    // Time update
     const updateTime = () => {
       if (!this._video) return;
       const current = this._formatTime(this._video.currentTime);
@@ -590,25 +607,41 @@ class GestureVideoPlayer extends HTMLElement {
       if (seekProgress) seekProgress.style.width = `${progress}%`;
     };
     
-    if (this._video) {
-      this._video.addEventListener('timeupdate', updateTime);
-      this._video.addEventListener('durationchange', updateTime);
-      this._video.addEventListener('play', () => {
-        const btn = root.querySelector('[data-action="play-pause"]');
-        if (btn) btn.textContent = '⏸';
-      });
-      this._video.addEventListener('pause', () => {
-        const btn = root.querySelector('[data-action="play-pause"]');
-        if (btn) btn.textContent = '▶';
-      });
-      this._video.addEventListener('volumechange', () => {
-        if (!this._video) return;
-        const fill = root.querySelector('.volume-fill');
-        const muteBtn = root.querySelector('[data-action="mute"]');
-        if (fill) fill.style.width = `${this._video.volume * 100}%`;
-        if (muteBtn) muteBtn.textContent = this._video.muted ? '🔇' : '🔊';
-      });
-    }
+    this._video.addEventListener('timeupdate', updateTime);
+    this._video.addEventListener('durationchange', updateTime);
+    this._video.addEventListener('loadedmetadata', updateTime);
+    
+    // Play/pause button toggle
+    this._video.addEventListener('play', () => {
+      const btn = root.querySelector('[data-action="play-pause"]');
+      if (btn) btn.textContent = '⏸';
+      
+      // Hide enable gate after first successful play if gestures not active
+      if (!this._cameraActive) {
+        const gate = root.querySelector('.enable-gate');
+        if (gate && !gate.classList.contains('hidden')) {
+          setTimeout(() => gate.classList.add('hidden'), 500);
+        }
+      }
+    });
+    
+    this._video.addEventListener('pause', () => {
+      const btn = root.querySelector('[data-action="play-pause"]');
+      if (btn) btn.textContent = '▶';
+    });
+    
+    // Volume
+    this._video.addEventListener('volumechange', () => {
+      if (!this._video) return;
+      const fill = root.querySelector('.volume-fill');
+      const muteBtn = root.querySelector('[data-action="mute"]');
+      if (fill) fill.style.width = `${this._video.volume * 100}%`;
+      if (muteBtn) muteBtn.textContent = this._video.muted ? '🔇' : '🔊';
+    });
+  }
+
+  _setupEventListeners() {
+    const root = this._root;
     
     // Control button listeners
     root.addEventListener('click', (e) => {
@@ -774,6 +807,12 @@ class GestureVideoPlayer extends HTMLElement {
     
     if (coach.classList.contains('hidden')) {
       coach.classList.remove('hidden');
+      
+      // Also show enable gate if gestures not active
+      if (!this._cameraActive) {
+        const gate = this._root.querySelector('.enable-gate');
+        if (gate) gate.classList.remove('hidden');
+      }
     } else {
       coach.classList.add('hidden');
       // Store dismissal
