@@ -2,7 +2,7 @@
 
 **Isolated MediaPipe gesture-controlled video player** – Zero-dependency vanilla ES module with closed Shadow DOM encapsulation. Control video playback with hand gestures using real-time hand tracking.
 
-[![Live Demo](https://img.shields.io/badge/demo-live-00ffff)](https://marvelus-tech.github.io/gesture-video-player/gesture-player.html)
+[![Live Demo](https://img.shields.io/badge/demo-live-00ffff)](https://marvelus-tech.github.io/gesture-video-player/)
 
 ## Features
 
@@ -44,7 +44,7 @@ For third-party embedding or strict isolation:
 
 ```html
 <iframe 
-  src="https://marvelus-tech.github.io/gesture-video-player/gesture-player.html?src=YOUR_VIDEO_URL"
+  src="https://marvelus-tech.github.io/gesture-video-player/?src=YOUR_VIDEO_URL"
   allow="camera;fullscreen;autoplay"
   width="800" 
   height="600"
@@ -225,9 +225,11 @@ When focused inside the player component:
 ```
 gesture-video-player/
 ├── gesture-video-player.js  # Main ES module (custom element)
-├── gesture-player.html       # Standalone demo page
+├── index.html                # Live demo (homepage)
+├── gesture-player.html       # Redirect to index.html (legacy URL)
 ├── host-smoke.html           # Isolation test (loud host styles)
 ├── worker.js                 # Worker stub (future use)
+├── demo.mp4                  # Sample video (967 KB)
 └── README.md                 # This file
 ```
 
@@ -337,7 +339,7 @@ Enable GitHub Pages to host the live demo:
 
 Your demo will be available at:
 ```
-https://marvelus-tech.github.io/gesture-video-player/gesture-player.html
+https://marvelus-tech.github.io/gesture-video-player/
 ```
 
 ## License

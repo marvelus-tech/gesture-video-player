@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Gesture Video Player Demo</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(135deg, #0a0e27 0%, #1a1f3a 100%);
+      color: #fff;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    
+    header {
+      text-align: center;
+      margin-bottom: 40px;
+    }
+    
+    h1 {
+      font-size: 48px;
+      font-weight: 700;
+      background: linear-gradient(135deg, #00ffff 0%, #0080ff 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      margin-bottom: 12px;
+    }
+    
+    .subtitle {
+      font-size: 18px;
+      color: rgba(255,255,255,0.6);
+    }
+    
+    .player-wrapper {
+      background: #000;
+      border-radius: 12px;
+      overflow: hidden;
+      box-shadow: 0 20px 60px rgba(0,255,255,0.2);
+      margin-bottom: 40px;
+    }
+    
+    gesture-video-player {
+      display: block;
+      width: 100%;
+      height: 600px;
+    }
+    
+    .legend {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 30px;
+      margin-bottom: 40px;
+    }
+    
+    .legend-title {
+      font-size: 24px;
+      font-weight: 600;
+      margin-bottom: 20px;
+      color: #00ffff;
+    }
+    
+    .legend-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 20px;
+    }
+    
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    
+    .legend-emoji {
+      font-size: 32px;
+    }
+    
+    .legend-text {
+      flex: 1;
+    }
+    
+    .legend-gesture {
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 3px;
+    }
+    
+    .legend-action {
+      font-size: 14px;
+      color: rgba(255,255,255,0.6);
+    }
+    
+    .info {
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      padding: 30px;
+    }
+    
+    .info-title {
+      font-size: 20px;
+      font-weight: 600;
+      margin-bottom: 12px;
+      color: #00ffff;
+    }
+    
+    .info-text {
+      line-height: 1.8;
+      color: rgba(255,255,255,0.8);
+      margin-bottom: 12px;
+    }
+    
+    .info-text:last-child {
+      margin-bottom: 0;
+    }
+    
+    code {
+      background: rgba(0,255,255,0.1);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: 'Courier New', monospace;
+      color: #00ffff;
+    }
+    
+    footer {
+      text-align: center;
+      margin-top: 60px;
+      padding-top: 30px;
+      border-top: 1px solid rgba(255,255,255,0.1);
+      color: rgba(255,255,255,0.5);
+      font-size: 14px;
+    }
+    
+    @media (max-width: 768px) {
+      h1 {
+        font-size: 32px;
+      }
+      
+      gesture-video-player {
+        height: 400px;
+      }
+      
+      .legend-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>Gesture Video Player</h1>
+      <p class="subtitle">Control video playback with hand gestures using MediaPipe</p>
+    </header>
+    
+    <div class="player-wrapper">
+      <gesture-video-player id="player" src="demo.mp4"></gesture-video-player>
+    </div>
+    
+    <div class="legend">
+      <div class="legend-title">Gesture Controls</div>
+      <div class="legend-grid">
+        <div class="legend-item">
+          <div class="legend-emoji">✋</div>
+          <div class="legend-text">
+            <div class="legend-gesture">Open Palm</div>
+            <div class="legend-action">Play video</div>
+          </div>
+        </div>
+        
+        <div class="legend-item">
+          <div class="legend-emoji">✊</div>
+          <div class="legend-text">
+            <div class="legend-gesture">Closed Fist</div>
+            <div class="legend-action">Pause video</div>
+          </div>
+        </div>
+        
+        <div class="legend-item">
+          <div class="legend-emoji">✌️</div>
+          <div class="legend-text">
+            <div class="legend-gesture">Victory Sign</div>
+            <div class="legend-action">Skip forward 10 seconds</div>
+          </div>
+        </div>
+        
+        <div class="legend-item">
+          <div class="legend-emoji">👍</div>
+          <div class="legend-text">
+            <div class="legend-gesture">Thumb Up</div>
+            <div class="legend-action">Increase playback speed</div>
+          </div>
+        </div>
+        
+        <div class="legend-item">
+          <div class="legend-emoji">👎</div>
+          <div class="legend-text">
+            <div class="legend-gesture">Thumb Down</div>
+            <div class="legend-action">Decrease playback speed</div>
+          </div>
+        </div>
+        
+        <div class="legend-item">
+          <div class="legend-emoji">☝️</div>
+          <div class="legend-text">
+            <div class="legend-gesture">Pointing Up</div>
+            <div class="legend-action">Seek aim mode</div>
+          </div>
+        </div>
+        
+        <div class="legend-item">
+          <div class="legend-emoji">🤏</div>
+          <div class="legend-text">
+            <div class="legend-gesture">Right Hand Pinch</div>
+            <div class="legend-action">Seek video (X-axis)</div>
+          </div>
+        </div>
+        
+        <div class="legend-item">
+          <div class="legend-emoji">🤏</div>
+          <div class="legend-text">
+            <div class="legend-gesture">Left Hand Pinch</div>
+            <div class="legend-action">Adjust volume (Y-axis)</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="info">
+      <div class="info-title">About</div>
+      <p class="info-text">
+        This demo showcases a gesture-controlled video player using <strong>MediaPipe Hand Landmarker</strong> 
+        for real-time hand tracking. All processing happens locally in your browser—no data is uploaded to any server.
+      </p>
+      <p class="info-text">
+        Click the <strong>"Enable Hand Control"</strong> button to activate camera access and start controlling 
+        the video with your hands. Make sure you're in a well-lit environment for best results.
+      </p>
+      <p class="info-text">
+        <strong>Privacy:</strong> Your camera feed is processed entirely on your device using WebAssembly. 
+        No images or video frames are transmitted over the network.
+      </p>
+    </div>
+    
+    <footer>
+      Powered by MediaPipe Tasks Vision v0.10.18 | Built with Web Components
+    </footer>
+  </div>
+  
+  <script type="module">
+    import './gesture-video-player.js';
+    
+    // Parse query parameters
+    const params = new URLSearchParams(window.location.search);
+    const player = document.getElementById('player');
+    
+    // Apply parameters if provided
+    if (params.has('src')) {
+      player.setAttribute('src', params.get('src'));
+    }
+    
+    if (params.has('overlay')) {
+      player.setAttribute('overlay', params.get('overlay'));
+    }
+    
+    if (params.has('gestures')) {
+      player.setAttribute('gestures', params.get('gestures'));
+    }
+    
+    // Event listeners for debugging/demo
+    player.addEventListener('gep-ready', (e) => {
+      console.log('Player ready:', e.detail);
+    });
+    
+    player.addEventListener('gep-camera-on', (e) => {
+      console.log('Camera activated:', e.detail);
+    });
+    
+    player.addEventListener('gep-camera-off', (e) => {
+      console.log('Camera deactivated');
+    });
+    
+    player.addEventListener('gep-gesture', (e) => {
+      console.log('Gesture detected:', e.detail);
+    });
+    
+    player.addEventListener('gep-error', (e) => {
+      console.error('Player error:', e.detail);
+    });
+  </script>
+</body>
+</html>
