@@ -411,10 +411,12 @@ class GestureVideoPlayer extends HTMLElement {
     this._lastDiscreteTime = 0;
     this._discreteHoldStart = null;
     this._discreteHoldGesture = null;
-    this._leftPinching = false;
-    this._rightPinching = false;
-    this._seekSmooth = null;
-    this._volumeSmooth = null;
+    this._isPinching = false;
+    this._pinchBaselineX = null;
+    this._pinchBaselineY = null;
+    this._pinchDominantAxis = null; // 'horizontal' or 'vertical'
+    this._pinchAxisThreshold = 0.03; // Movement threshold to lock axis
+    this._controlSmooth = null;
     this._lastHandTime = Date.now();
     this._noPinchExitTimer = null;
     
@@ -550,18 +552,18 @@ class GestureVideoPlayer extends HTMLElement {
               <div class="coach-action">Skip +10s</div>
             </div>
             <div class="coach-card">
-              <div class="coach-emoji">🤏</div>
-              <div class="coach-gesture">Right Pinch</div>
-              <div class="coach-action">Seek (X-axis)</div>
+              <div class="coach-emoji">🤏↔️</div>
+              <div class="coach-gesture">Pinch + Left/Right</div>
+              <div class="coach-action">Seek</div>
             </div>
             <div class="coach-card">
-              <div class="coach-emoji">🤏</div>
-              <div class="coach-gesture">Left Pinch</div>
-              <div class="coach-action">Volume (Y-axis)</div>
+              <div class="coach-emoji">🤏↕️</div>
+              <div class="coach-gesture">Pinch + Up/Down</div>
+              <div class="coach-action">Volume</div>
             </div>
           </div>
           <div class="coach-footer">
-            Pinch: Index + Thumb together
+            Pinch + move in one direction (axis locks automatically)
           </div>
         </div>
         
@@ -992,18 +994,20 @@ class GestureVideoPlayer extends HTMLElement {
     const now = Date.now();
     
     if (!results.landmarks || results.landmarks.length === 0) {
-      // No hands detected
+      // No hands detected - reset pinch state after timeout
       const timeSinceHand = now - this._lastHandTime;
       if (timeSinceHand > CONSTANTS.NO_HAND_PINCH_EXIT_MS) {
-        this._leftPinching = false;
-        this._rightPinching = false;
+        this._isPinching = false;
+        this._pinchDominantAxis = null;
+        this._pinchBaselineX = null;
+        this._pinchBaselineY = null;
       }
       return;
     }
     
     this._lastHandTime = now;
     
-    // Process each hand
+    // Process each hand (take first valid pinch)
     for (let i = 0; i < results.landmarks.length; i++) {
       const landmarks = results.landmarks[i];
       const handedness = results.handednesses?.[i]?.[0];
@@ -1024,62 +1028,89 @@ class GestureVideoPlayer extends HTMLElement {
       const pinchDist = Math.hypot(index.x - thumb.x, index.y - thumb.y);
       const isPinching = pinchDist < (CONSTANTS.PINCH_PALM_RATIO * palmSize);
       
-      // CRITICAL: MediaPipe handedness is mirrored for user-facing camera
-      // Their "Right" is screen-left (user's actual right), "Left" is screen-right
-      const isMediaPipeRight = handedness.categoryName === 'Right';
-      const isMediaPipeLeft = handedness.categoryName === 'Left';
-      
-      if (isMediaPipeRight && isPinching) {
-        // MediaPipe Right hand → seek control
-        this._rightPinching = true;
-        this._handleSeekPinch(index.x);
-      } else if (isMediaPipeRight) {
-        this._rightPinching = false;
+      if (isPinching) {
+        // Use index tip position for control (palm center alternative: wrist midpoint)
+        const controlX = index.x;
+        const controlY = 1 - index.y; // Invert Y: hand up = higher value = louder
+        
+        if (!this._isPinching) {
+          // Pinch start - record baseline
+          this._isPinching = true;
+          this._pinchBaselineX = controlX;
+          this._pinchBaselineY = controlY;
+          this._pinchDominantAxis = null;
+          this._controlSmooth = null;
+        }
+        
+        // Axis-based control with dominant-axis lock
+        this._handleAxisPinch(controlX, controlY);
+        
+        // Only process first valid pinch per frame
+        break;
+      } else if (this._isPinching) {
+        // Pinch ended
+        this._isPinching = false;
+        this._pinchDominantAxis = null;
+        this._pinchBaselineX = null;
+        this._pinchBaselineY = null;
       }
       
-      if (isMediaPipeLeft && isPinching) {
-        // MediaPipe Left hand → volume control
-        this._leftPinching = true;
-        this._handleVolumePinch(1 - index.y); // Invert Y for natural up=louder
-      } else if (isMediaPipeLeft) {
-        this._leftPinching = false;
+      // Detect discrete gestures (only if not pinching)
+      if (!isPinching) {
+        this._detectDiscreteGestures(landmarks, handedness);
       }
-      
-      // Detect discrete gestures (simplified for demo)
-      // In production, use GestureRecognizer or custom classifier
-      this._detectDiscreteGestures(landmarks, handedness);
     }
   }
 
-  _handleSeekPinch(x) {
-    if (!this._video || !this._video.duration) return;
-    
-    if (this._seekSmooth === null) {
-      this._seekSmooth = x;
-    }
-    
-    // Apply EMA smoothing
-    this._seekSmooth = CONSTANTS.EMA_ALPHA * x + (1 - CONSTANTS.EMA_ALPHA) * this._seekSmooth;
-    
-    const delta = x - this._seekSmooth;
-    if (Math.abs(delta) < CONSTANTS.SEEK_DEADZONE) return;
-    
-    // Map X position to video time
-    const targetTime = this._seekSmooth * this._video.duration;
-    this._video.currentTime = Math.max(0, Math.min(this._video.duration, targetTime));
-  }
-
-  _handleVolumePinch(y) {
+  _handleAxisPinch(x, y) {
     if (!this._video) return;
     
-    if (this._volumeSmooth === null) {
-      this._volumeSmooth = y;
+    // Calculate deltas from baseline
+    const deltaX = Math.abs(x - this._pinchBaselineX);
+    const deltaY = Math.abs(y - this._pinchBaselineY);
+    
+    // Determine dominant axis on first significant movement
+    if (!this._pinchDominantAxis) {
+      if (deltaX > this._pinchAxisThreshold || deltaY > this._pinchAxisThreshold) {
+        // Lock to axis with greater movement
+        this._pinchDominantAxis = deltaX > deltaY ? 'horizontal' : 'vertical';
+      } else {
+        // Still within deadzone, no control yet
+        return;
+      }
     }
     
-    this._volumeSmooth = CONSTANTS.EMA_ALPHA * y + (1 - CONSTANTS.EMA_ALPHA) * this._volumeSmooth;
-    
-    this._video.volume = Math.max(0, Math.min(1, this._volumeSmooth));
-    this._video.muted = false;
+    // Apply control based on locked axis
+    if (this._pinchDominantAxis === 'horizontal') {
+      // Seek control (horizontal movement)
+      if (!this._video.duration) return;
+      
+      if (this._controlSmooth === null) {
+        this._controlSmooth = x;
+      }
+      
+      // Apply EMA smoothing
+      this._controlSmooth = CONSTANTS.EMA_ALPHA * x + (1 - CONSTANTS.EMA_ALPHA) * this._controlSmooth;
+      
+      const delta = x - this._controlSmooth;
+      if (Math.abs(delta) < CONSTANTS.SEEK_DEADZONE) return;
+      
+      // Map X position to video time
+      const targetTime = this._controlSmooth * this._video.duration;
+      this._video.currentTime = Math.max(0, Math.min(this._video.duration, targetTime));
+      
+    } else if (this._pinchDominantAxis === 'vertical') {
+      // Volume control (vertical movement, already inverted)
+      if (this._controlSmooth === null) {
+        this._controlSmooth = y;
+      }
+      
+      // Apply EMA smoothing
+      this._controlSmooth = CONSTANTS.EMA_ALPHA * y + (1 - CONSTANTS.EMA_ALPHA) * this._controlSmooth;
+      
+      this._video.volume = Math.max(0, Math.min(1, this._controlSmooth));
+      this._video.muted = false;
+    }
   }
 
   _detectDiscreteGestures(landmarks, handedness) {
@@ -1262,9 +1293,16 @@ class GestureVideoPlayer extends HTMLElement {
         const label = this._shadow.querySelector('.hud-label');
         if (label) {
           const side = handedness?.categoryName || 'Unknown';
-          const state = (side === 'Right' && this._rightPinching) || (side === 'Left' && this._leftPinching) 
-            ? 'Pinching' 
-            : 'Detected';
+          let state = 'Detected';
+          if (this._isPinching) {
+            if (this._pinchDominantAxis === 'horizontal') {
+              state = 'Seek';
+            } else if (this._pinchDominantAxis === 'vertical') {
+              state = 'Volume';
+            } else {
+              state = 'Pinching';
+            }
+          }
           label.textContent = `${side} hand ${state}`;
         }
       }

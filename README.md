@@ -66,16 +66,17 @@ For third-party embedding or strict isolation:
 | **Victory** | ✌️ | Increase playback speed | Discrete |
 | **ILoveYou** | 🤟 | Decrease playback speed | Discrete |
 | **Pointing Up** | ☝️ | Skip forward 10 seconds | Discrete |
-| **Right Hand Pinch** | 🤏 | Seek video (X-axis) | Continuous |
-| **Left Hand Pinch** | 🤏 | Volume control (Y-axis) | Continuous |
+| **Pinch + Move Left/Right** | 🤏↔️ | Seek video | Continuous |
+| **Pinch + Move Up/Down** | 🤏↕️ | Volume control | Continuous |
 
 ### Gesture Notes
 
 - **Discrete gestures** require ~400ms hold with majority voting (anti-jitter)
 - **Continuous gestures** use exponential smoothing for fluid control
-- **Pinch detection**: Index finger + thumb closer than 38% of palm size
+- **Pinch detection**: Index finger + thumb closer than 38% of palm size (works with either hand)
+- **Axis-based pinch**: Pinch activates control mode; first significant movement (horizontal or vertical) locks the axis until pinch ends
+- **Dominant-axis locking**: Prevents diagonal wobble from controlling both seek and volume simultaneously
 - **ILoveYou detection**: Thumb + index + pinky extended, middle + ring curled (classic ASL "I Love You")
-- **MediaPipe handedness**: Mirrored for user-facing camera (Right = screen-left)
 - **Playback rates**: 0.5x, 0.75x, 1x, 1.25x, 1.5x, 2x (6 notches)
 
 ## API Reference
