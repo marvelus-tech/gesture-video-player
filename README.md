@@ -63,10 +63,9 @@ For third-party embedding or strict isolation:
 |---------|------|--------|------|
 | **Open Palm** | ✋ | Play video | Discrete |
 | **Closed Fist** | ✊ | Pause video | Discrete |
-| **Victory** | ✌️ | Skip forward 10 seconds | Discrete |
-| **Thumb Up** | 👍 | Increase playback speed | Discrete |
-| **Thumb Down** | 👎 | Decrease playback speed | Discrete |
-| **Pointing Up** | ☝️ | Seek aim mode | Discrete |
+| **Victory** | ✌️ | Increase playback speed | Discrete |
+| **ILoveYou** | 🤟 | Decrease playback speed | Discrete |
+| **Pointing Up** | ☝️ | Skip forward 10 seconds | Discrete |
 | **Right Hand Pinch** | 🤏 | Seek video (X-axis) | Continuous |
 | **Left Hand Pinch** | 🤏 | Volume control (Y-axis) | Continuous |
 
@@ -75,7 +74,9 @@ For third-party embedding or strict isolation:
 - **Discrete gestures** require ~400ms hold with majority voting (anti-jitter)
 - **Continuous gestures** use exponential smoothing for fluid control
 - **Pinch detection**: Index finger + thumb closer than 38% of palm size
+- **ILoveYou detection**: Thumb + index + pinky extended, middle + ring curled (classic ASL "I Love You")
 - **MediaPipe handedness**: Mirrored for user-facing camera (Right = screen-left)
+- **Playback rates**: 0.5x, 0.75x, 1x, 1.25x, 1.5x, 2x (6 notches)
 
 ## API Reference
 

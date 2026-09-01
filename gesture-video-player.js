@@ -15,8 +15,9 @@ export const CONSTANTS = {
   MIN_HANDEDNESS_SCORE: 0.7,            // Minimum confidence for left/right hand
   MIN_HAND_FRAME_HEIGHT: 0.08,          // Minimum hand height ratio to detect
   MAJORITY_WINDOW: 5,                   // Frames for gesture majority voting
-  VICTORY_SEEK_SEC: 10,                 // Seconds to skip with Victory gesture
+  POINTING_SEEK_SEC: 10,                // Seconds to skip with Pointing_Up gesture
   KEYBOARD_SEEK_SEC: 5,                 // Seconds to skip with arrow keys
+  PLAYBACK_RATES: [0.5, 0.75, 1, 1.25, 1.5, 2], // Available playback rate notches
   HUD_MAX_PX: 200,                      // Maximum HUD canvas dimension (px)
   COACH_STORAGE_KEY: 'gep-coach-v1',    // LocalStorage key for coach dismissal
   MEDIAPIPE_CDN_BASE: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm',
@@ -536,22 +537,17 @@ class GestureVideoPlayer extends HTMLElement {
             <div class="coach-card">
               <div class="coach-emoji">✌️</div>
               <div class="coach-gesture">Victory</div>
-              <div class="coach-action">Skip +10s</div>
-            </div>
-            <div class="coach-card">
-              <div class="coach-emoji">👍</div>
-              <div class="coach-gesture">Thumb Up</div>
               <div class="coach-action">Speed Up</div>
             </div>
             <div class="coach-card">
-              <div class="coach-emoji">👎</div>
-              <div class="coach-gesture">Thumb Down</div>
+              <div class="coach-emoji">🤟</div>
+              <div class="coach-gesture">ILoveYou</div>
               <div class="coach-action">Speed Down</div>
             </div>
             <div class="coach-card">
               <div class="coach-emoji">☝️</div>
               <div class="coach-gesture">Pointing Up</div>
-              <div class="coach-action">Seek Mode</div>
+              <div class="coach-action">Skip +10s</div>
             </div>
             <div class="coach-card">
               <div class="coach-emoji">🤏</div>
@@ -799,6 +795,28 @@ class GestureVideoPlayer extends HTMLElement {
     
     const btn = this._root.querySelector('[data-action="speed"]');
     if (btn) btn.textContent = `${speeds[nextIndex]}x`;
+  }
+
+  _changePlaybackRate(direction) {
+    if (!this._video) return;
+    const rates = CONSTANTS.PLAYBACK_RATES;
+    const current = this._video.playbackRate;
+    
+    // Find closest rate index
+    let currentIndex = rates.findIndex(r => Math.abs(r - current) < 0.01);
+    if (currentIndex === -1) {
+      // Find nearest rate
+      currentIndex = rates.reduce((nearest, rate, index) => {
+        return Math.abs(rate - current) < Math.abs(rates[nearest] - current) ? index : nearest;
+      }, 0);
+    }
+    
+    // Move to next/prev rate (clamped)
+    const newIndex = Math.max(0, Math.min(rates.length - 1, currentIndex + direction));
+    this._video.playbackRate = rates[newIndex];
+    
+    const btn = this._root.querySelector('[data-action="speed"]');
+    if (btn) btn.textContent = `${rates[newIndex]}x`;
   }
 
   _toggleCoach() {
@@ -1079,13 +1097,13 @@ class GestureVideoPlayer extends HTMLElement {
     else if (fingers.every(f => !f)) {
       gesture = 'Closed_Fist';
     }
-    // Victory (index and middle up)
-    else if (fingers[1] && fingers[2] && !fingers[3] && !fingers[4]) {
-      gesture = 'Victory';
+    // ILoveYou (thumb + index + pinky extended, middle + ring curled)
+    else if (fingers[0] && fingers[1] && !fingers[2] && !fingers[3] && fingers[4]) {
+      gesture = 'ILoveYou';
     }
-    // Thumb up
-    else if (fingers[0] && !fingers[1] && !fingers[2] && !fingers[3] && !fingers[4]) {
-      gesture = 'Thumb_Up';
+    // Victory (index and middle up, others down)
+    else if (!fingers[0] && fingers[1] && fingers[2] && !fingers[3] && !fingers[4]) {
+      gesture = 'Victory';
     }
     // Pointing up (index only)
     else if (!fingers[0] && fingers[1] && !fingers[2] && !fingers[3] && !fingers[4]) {
@@ -1161,16 +1179,19 @@ class GestureVideoPlayer extends HTMLElement {
         this._video.pause();
         break;
       case 'Victory':
-        this._video.currentTime = Math.min(
-          this._video.duration,
-          this._video.currentTime + CONSTANTS.VICTORY_SEEK_SEC
-        );
+        // Increase playback rate one notch
+        this._changePlaybackRate(1);
         break;
-      case 'Thumb_Up':
-        this._cycleSpeed();
+      case 'ILoveYou':
+        // Decrease playback rate one notch
+        this._changePlaybackRate(-1);
         break;
       case 'Pointing_Up':
-        // Seek aim mode (placeholder)
+        // Skip forward 10 seconds
+        this._video.currentTime = Math.min(
+          this._video.duration,
+          this._video.currentTime + CONSTANTS.POINTING_SEEK_SEC
+        );
         break;
     }
     
