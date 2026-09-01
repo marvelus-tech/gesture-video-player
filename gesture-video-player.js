@@ -293,6 +293,7 @@ video {
   z-index: 40;
   padding: 20px;
   text-align: center;
+  pointer-events: none;
 }
 
 .enable-gate-title {
@@ -319,6 +320,7 @@ video {
   border-radius: 6px;
   cursor: pointer;
   transition: transform 0.2s;
+  pointer-events: auto;
 }
 
 .enable-gate-btn:hover {
