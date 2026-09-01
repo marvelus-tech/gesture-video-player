@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Host Smoke Test - Gesture Video Player Isolation</title>
+  <style>
+    /* 
+     * LOUD HOST STYLES - These should NOT leak into the player's Shadow DOM
+     * This page tests that the custom element is properly isolated
+     */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Comic Sans MS', cursive, sans-serif !important;
+      background: repeating-linear-gradient(
+        45deg,
+        #ff00ff,
+        #ff00ff 10px,
+        #ffff00 10px,
+        #ffff00 20px
+      );
+      color: #ff0000 !important;
+      padding: 40px;
+      min-height: 100vh;
+    }
+    
+    /* Aggressive global styles that should be blocked by Shadow DOM */
+    video {
+      border: 20px solid lime !important;
+      filter: sepia(1) hue-rotate(180deg) !important;
+      transform: rotate(10deg) !important;
+    }
+    
+    button {
+      background: orange !important;
+      color: purple !important;
+      font-size: 24px !important;
+      border: 5px dashed red !important;
+      padding: 20px !important;
+      cursor: pointer !important;
+      transform: skew(-5deg) !important;
+    }
+    
+    canvas {
+      border: 10px dotted blue !important;
+      filter: invert(1) !important;
+    }
+    
+    div {
+      border: 3px solid cyan !important;
+    }
+    
+    /* Test container - should not affect player internals */
+    .test-container {
+      max-width: 900px;
+      margin: 0 auto;
+      background: white;
+      padding: 30px;
+      border-radius: 20px;
+      box-shadow: 0 0 50px rgba(0,0,0,0.8);
+    }
+    
+    .test-title {
+      font-size: 48px;
+      font-weight: bold;
+      text-align: center;
+      margin-bottom: 20px;
+      text-shadow: 3px 3px 0 yellow, 6px 6px 0 cyan;
+      animation: rainbow 2s infinite;
+    }
+    
+    @keyframes rainbow {
+      0% { color: red; }
+      16% { color: orange; }
+      33% { color: yellow; }
+      50% { color: green; }
+      66% { color: blue; }
+      83% { color: indigo; }
+      100% { color: violet; }
+    }
+    
+    .alert-button {
+      display: block;
+      width: 100%;
+      margin: 20px 0;
+      font-family: 'Impact', sans-serif;
+      text-transform: uppercase;
+    }
+    
+    .player-wrapper {
+      margin: 30px 0;
+      /* Reset some aggressive styles just for the wrapper */
+      border: 5px solid #000 !important;
+      background: #000;
+    }
+    
+    gesture-video-player {
+      display: block;
+      width: 100%;
+      height: 500px;
+    }
+    
+    .isolation-notes {
+      background: #fffacd;
+      padding: 20px;
+      border: 5px double #ff00ff;
+      margin-top: 30px;
+    }
+    
+    .isolation-notes h2 {
+      color: #ff0000;
+      margin-bottom: 10px;
+    }
+    
+    .isolation-notes ul {
+      margin-left: 20px;
+      color: #000;
+    }
+    
+    .isolation-notes li {
+      margin: 8px 0;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    
+    .isolation-notes code {
+      background: #f0f0f0;
+      padding: 2px 6px;
+      border: 1px solid #ccc;
+      font-family: monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="test-container">
+    <h1 class="test-title">🚨 ISOLATION TEST 🚨</h1>
+    
+    <button class="alert-button" onclick="alert('Host page interactivity works!')">
+      Click Me - Test Host Button
+    </button>
+    
+    <div class="player-wrapper">
+      <gesture-video-player id="player"></gesture-video-player>
+    </div>
+    
+    <button class="alert-button" onclick="testIsolation()">
+      Run Isolation Assertions
+    </button>
+    
+    <div class="isolation-notes">
+      <h2>Isolation Assertions</h2>
+      <ul>
+        <li>✓ Player video should NOT have lime border, sepia filter, or rotation</li>
+        <li>✓ Player buttons should NOT be orange/purple with dashed borders</li>
+        <li>✓ Player HUD canvas should NOT have blue border or invert filter</li>
+        <li>✓ Player controls should maintain dark sci-fi HUD theme</li>
+        <li>✓ Host styles should NOT leak into Shadow DOM</li>
+        <li>✓ Player should NOT be affected by <code>body { font-family: Comic Sans }</code></li>
+        <li>✓ <code>document.querySelectorAll('video')</code> should return ZERO elements (Shadow DOM is closed)</li>
+        <li>✓ Player functionality (play/pause/gestures) should work normally despite host chaos</li>
+      </ul>
+    </div>
+  </div>
+  
+  <script type="module">
+    import './gesture-video-player.js';
+    
+    const player = document.getElementById('player');
+    
+    // Test event listeners
+    player.addEventListener('gep-ready', () => {
+      console.log('✓ Player ready event fired');
+    });
+    
+    player.addEventListener('gep-gesture', (e) => {
+      console.log('✓ Gesture detected:', e.detail);
+    });
+    
+    window.testIsolation = function() {
+      const results = [];
+      
+      // Test 1: Shadow DOM is closed
+      const isClosed = player.shadowRoot === null;
+      results.push(`Shadow DOM closed: ${isClosed ? '✓' : '✗ FAIL'}`);
+      
+      // Test 2: document.querySelectorAll should not find internal video
+      const externalVideos = document.querySelectorAll('video');
+      results.push(`External videos found: ${externalVideos.length} ${externalVideos.length === 0 ? '✓' : '✗ FAIL'}`);
+      
+      // Test 3: Can access video via public method
+      const video = player.getVideoElement();
+      results.push(`Public getVideoElement() works: ${video ? '✓' : '✗ FAIL'}`);
+      
+      // Test 4: Custom element is registered
+      const isDefined = customElements.get('gesture-video-player') !== undefined;
+      results.push(`Custom element registered: ${isDefined ? '✓' : '✗ FAIL'}`);
+      
+      // Test 5: Element has expected methods
+      const hasEnableCamera = typeof player.enableCamera === 'function';
+      const hasDisableCamera = typeof player.disableCamera === 'function';
+      const hasDestroy = typeof player.destroy === 'function';
+      results.push(`Public API methods exist: ${hasEnableCamera && hasDisableCamera && hasDestroy ? '✓' : '✗ FAIL'}`);
+      
+      // Display results
+      alert('Isolation Test Results:\n\n' + results.join('\n'));
+      console.log('Isolation Test Results:', results);
+      
+      return results.every(r => r.includes('✓'));
+    };
+    
+    // Auto-run tests after a delay
+    setTimeout(() => {
+      console.log('Running automatic isolation checks...');
+      testIsolation();
+    }, 2000);
+  </script>
+</body>
+</html>
