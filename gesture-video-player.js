@@ -378,7 +378,7 @@ video {
 class GestureVideoPlayer extends HTMLElement {
   constructor() {
     super();
-    this.attachShadow({ mode: 'closed' });
+    this._shadow = this.attachShadow({ mode: 'closed' });
     
     // Core state
     this._video = null;
@@ -405,7 +405,6 @@ class GestureVideoPlayer extends HTMLElement {
     this._noPinchExitTimer = null;
     
     this._root = null;
-    this._shadow = this.shadowRoot;
   }
 
   static get observedAttributes() {
