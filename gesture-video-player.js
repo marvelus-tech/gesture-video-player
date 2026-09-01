@@ -21,7 +21,7 @@ export const CONSTANTS = {
   COACH_STORAGE_KEY: 'gep-coach-v1',    // LocalStorage key for coach dismissal
   MEDIAPIPE_CDN_BASE: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm',
   MODEL_BASE_URL: 'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
-  SAMPLE_VIDEO_URL: 'https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4'
+  SAMPLE_VIDEO_URL: 'demo.mp4'
 };
 
 // ============================================================================

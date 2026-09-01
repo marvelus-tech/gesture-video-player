@@ -27,7 +27,7 @@
 </head>
 <body>
   <gesture-video-player
-    src="https://storage.googleapis.com/gtv-videos-bucket/sample/BigBuckBunny.mp4"
+    src="demo.mp4"
     style="width: 100%; height: 600px;">
   </gesture-video-player>
   
@@ -97,7 +97,7 @@ For third-party embedding or strict isolation:
 
 | Attribute | Type | Default | Description |
 |-----------|------|---------|-------------|
-| `src` | URL | Sample video | Video source URL |
+| `src` | URL | `demo.mp4` | Video source URL |
 | `poster` | URL | – | Poster image URL |
 | `gestures` | String | `"all"` | Gesture filter (future) |
 | `overlay` | String | `"hud"` | Overlay mode |
@@ -347,7 +347,7 @@ MIT License - Free for commercial and personal use.
 ## Credits
 
 - **MediaPipe** by Google – Hand tracking models
-- **Sample Video** – Big Buck Bunny (Blender Foundation, CC BY 3.0)
+- **Demo Video** – Big Buck Bunny 360p (test-videos.co.uk, Blender Foundation, CC BY 3.0)
 
 ## Contributing
 
