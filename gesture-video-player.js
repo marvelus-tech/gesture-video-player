@@ -26,7 +26,7 @@ export const CONSTANTS = {
 };
 
 // ============================================================================
-// Shadow DOM Styles - Dark sci-fi HUD theme
+// Shadow DOM Styles - Cinema device theme
 // ============================================================================
 const STYLES = `
 :host {
@@ -35,9 +35,17 @@ const STYLES = `
   width: 100%;
   max-width: 100%;
   background: #000;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-  color: #fff;
+  font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  color: #F4F1EA;
   line-height: 1.5;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
 }
 
 #gep-root {
@@ -75,7 +83,7 @@ video {
   align-items: center;
   gap: 12px;
   z-index: 10;
-  transition: opacity 0.3s;
+  transition: opacity 280ms cubic-bezier(0.22, 1, 0.32, 1);
 }
 
 .controls.hide {
@@ -84,24 +92,29 @@ video {
 }
 
 .btn {
-  background: rgba(255,255,255,0.1);
-  border: 1px solid rgba(255,255,255,0.2);
-  color: #fff;
+  background: rgba(244, 241, 234, 0.08);
+  border: 1px solid rgba(244, 241, 234, 0.12);
+  color: #F4F1EA;
   padding: 6px 12px;
-  border-radius: 4px;
+  border-radius: 999px;
   cursor: pointer;
-  font-size: 14px;
-  transition: all 0.2s;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  transition: background 160ms cubic-bezier(0.22, 1, 0.32, 1),
+              border-color 160ms cubic-bezier(0.22, 1, 0.32, 1),
+              transform 160ms cubic-bezier(0.22, 1, 0.32, 1);
   white-space: nowrap;
 }
 
 .btn:hover {
-  background: rgba(255,255,255,0.2);
-  border-color: rgba(255,255,255,0.4);
+  background: rgba(244, 241, 234, 0.12);
+  border-color: rgba(244, 241, 234, 0.2);
 }
 
 .btn:active {
-  transform: scale(0.95);
+  transform: scale(0.96);
+  transition-duration: 80ms;
 }
 
 .btn-icon {
@@ -111,15 +124,17 @@ video {
 
 .time-display {
   font-size: 13px;
-  color: rgba(255,255,255,0.8);
+  font-variant-numeric: tabular-nums;
+  color: #A39E94;
+  letter-spacing: 0.01em;
   white-space: nowrap;
 }
 
 .seek-bar {
   flex: 1;
   height: 6px;
-  background: rgba(255,255,255,0.2);
-  border-radius: 3px;
+  background: rgba(244, 241, 234, 0.15);
+  border-radius: 999px;
   cursor: pointer;
   position: relative;
   min-width: 80px;
@@ -130,17 +145,16 @@ video {
   left: 0;
   top: 0;
   height: 100%;
-  background: #00ffff;
-  border-radius: 3px;
+  background: #D4A574;
+  border-radius: 999px;
   transition: width 0.1s;
-  box-shadow: 0 0 8px rgba(0,255,255,0.5);
 }
 
 .volume-slider {
   width: 80px;
   height: 4px;
-  background: rgba(255,255,255,0.2);
-  border-radius: 2px;
+  background: rgba(244, 241, 234, 0.15);
+  border-radius: 999px;
   cursor: pointer;
   position: relative;
 }
@@ -150,8 +164,8 @@ video {
   left: 0;
   top: 0;
   height: 100%;
-  background: #fff;
-  border-radius: 2px;
+  background: #F4F1EA;
+  border-radius: 999px;
 }
 
 .hud {
@@ -162,13 +176,14 @@ video {
   height: ${CONSTANTS.HUD_MAX_PX}px;
   max-width: calc(40vw);
   max-height: calc(40vh);
-  border: 2px solid rgba(0,255,255,0.6);
-  border-radius: 8px;
-  background: rgba(0,20,40,0.85);
+  border: 2px solid #E24B4A;
+  border-radius: 20px;
+  background: rgba(18, 18, 20, 0.58);
+  backdrop-filter: blur(22px) saturate(1.15);
   overflow: hidden;
   z-index: 20;
   display: none;
-  box-shadow: 0 0 20px rgba(0,255,255,0.4);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
 }
 
 .hud.active {
@@ -184,18 +199,19 @@ video {
 
 .hud-label {
   position: absolute;
-  bottom: 4px;
-  left: 4px;
-  right: 4px;
-  background: rgba(0,0,0,0.7);
-  color: #00ffff;
+  bottom: 8px;
+  left: 8px;
+  right: 8px;
+  background: rgba(18, 18, 20, 0.85);
+  backdrop-filter: blur(12px);
+  color: #F4F1EA;
   font-size: 11px;
-  padding: 3px 6px;
-  border-radius: 3px;
+  font-weight: 500;
+  padding: 6px 8px;
+  border-radius: 8px;
   text-align: center;
-  font-weight: 600;
   text-transform: uppercase;
-  letter-spacing: 0.5px;
+  letter-spacing: 0.08em;
 }
 
 .coach {
@@ -205,41 +221,52 @@ video {
   transform: translate(-50%, -50%);
   max-width: 600px;
   width: calc(100% - 40px);
-  background: rgba(0,20,40,0.95);
-  border: 2px solid rgba(0,255,255,0.6);
-  border-radius: 12px;
+  background: rgba(18, 18, 20, 0.95);
+  backdrop-filter: blur(22px) saturate(1.15);
+  border: 1px solid rgba(244, 241, 234, 0.12);
+  border-radius: 20px;
   padding: 24px;
   z-index: 30;
-  box-shadow: 0 0 40px rgba(0,255,255,0.3);
+  box-shadow: 0 16px 64px rgba(0, 0, 0, 0.6);
 }
 
 .coach-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 16px;
+  margin-bottom: 20px;
 }
 
 .coach-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
-  color: #00ffff;
+  color: #F4F1EA;
+  letter-spacing: 0.01em;
 }
 
 .coach-close {
   background: transparent;
   border: none;
-  color: rgba(255,255,255,0.6);
+  color: #A39E94;
   font-size: 24px;
   cursor: pointer;
   padding: 0;
-  width: 28px;
-  height: 28px;
+  width: 32px;
+  height: 32px;
   line-height: 1;
+  border-radius: 999px;
+  transition: background 160ms cubic-bezier(0.22, 1, 0.32, 1),
+              color 160ms cubic-bezier(0.22, 1, 0.32, 1);
 }
 
 .coach-close:hover {
-  color: #fff;
+  background: rgba(244, 241, 234, 0.06);
+  color: #F4F1EA;
+}
+
+.coach-close:active {
+  transform: scale(0.92);
+  transition-duration: 80ms;
 }
 
 .coach-grid {
@@ -250,34 +277,44 @@ video {
 }
 
 .coach-card {
-  background: rgba(0,255,255,0.08);
-  border: 1px solid rgba(0,255,255,0.3);
-  border-radius: 8px;
+  background: rgba(244, 241, 234, 0.04);
+  border: 1px solid rgba(244, 241, 234, 0.08);
+  border-radius: 12px;
   padding: 12px;
   text-align: center;
+  transition: background 160ms cubic-bezier(0.22, 1, 0.32, 1),
+              border-color 160ms cubic-bezier(0.22, 1, 0.32, 1);
+}
+
+.coach-card:hover {
+  background: rgba(244, 241, 234, 0.06);
+  border-color: rgba(244, 241, 234, 0.12);
 }
 
 .coach-emoji {
   font-size: 32px;
-  margin-bottom: 6px;
+  margin-bottom: 8px;
 }
 
 .coach-gesture {
   font-size: 12px;
   font-weight: 600;
-  color: #00ffff;
-  margin-bottom: 3px;
+  color: #F4F1EA;
+  margin-bottom: 4px;
+  letter-spacing: 0.02em;
 }
 
 .coach-action {
   font-size: 11px;
-  color: rgba(255,255,255,0.7);
+  color: #A39E94;
+  letter-spacing: 0.01em;
 }
 
 .coach-footer {
   font-size: 12px;
-  color: rgba(255,255,255,0.6);
+  color: #A39E94;
   text-align: center;
+  letter-spacing: 0.01em;
 }
 
 .enable-gate {
@@ -285,19 +322,20 @@ video {
   left: 0;
   right: 0;
   bottom: 60px;
-  background: rgba(0,20,40,0.95);
-  backdrop-filter: blur(8px);
-  border-top: 2px solid rgba(0,255,255,0.4);
+  background: rgba(18, 18, 20, 0.95);
+  backdrop-filter: blur(22px) saturate(1.15);
+  border-top: 1px solid rgba(212, 165, 116, 0.3);
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
+  gap: 20px;
   z-index: 40;
-  padding: 12px 20px;
+  padding: 16px 20px;
   text-align: left;
   pointer-events: none;
-  transition: opacity 0.3s, transform 0.3s;
+  transition: opacity 280ms cubic-bezier(0.22, 1, 0.32, 1),
+              transform 280ms cubic-bezier(0.22, 1, 0.32, 1);
 }
 
 .enable-gate.hidden {
@@ -307,36 +345,46 @@ video {
 }
 
 .enable-gate-title {
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
-  margin-bottom: 3px;
-  color: #00ffff;
+  margin-bottom: 4px;
+  color: #F4F1EA;
+  letter-spacing: 0.01em;
 }
 
 .enable-gate-text {
-  font-size: 13px;
-  color: rgba(255,255,255,0.7);
+  font-size: 12px;
+  color: #A39E94;
   line-height: 1.4;
+  letter-spacing: 0.01em;
   margin: 0;
 }
 
 .enable-gate-btn {
-  background: linear-gradient(135deg, #00ffff 0%, #0080ff 100%);
+  background: #D4A574;
   border: none;
-  color: #000;
-  font-size: 14px;
+  color: #09090B;
+  font-size: 13px;
   font-weight: 600;
-  padding: 8px 20px;
-  border-radius: 6px;
+  padding: 10px 24px;
+  border-radius: 999px;
   cursor: pointer;
-  transition: all 0.2s;
+  letter-spacing: 0.02em;
+  transition: transform 160ms cubic-bezier(0.22, 1, 0.32, 1),
+              box-shadow 160ms cubic-bezier(0.22, 1, 0.32, 1);
   pointer-events: auto;
   white-space: nowrap;
   flex-shrink: 0;
 }
 
 .enable-gate-btn:hover {
-  transform: scale(1.05);
+  transform: scale(1.02);
+  box-shadow: 0 4px 16px rgba(212, 165, 116, 0.3);
+}
+
+.enable-gate-btn:active {
+  transform: scale(0.98);
+  transition-duration: 80ms;
 }
 
 .error-overlay {
@@ -345,7 +393,7 @@ video {
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0,0,0,0.85);
+  background: rgba(0,0,0,0.9);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -356,20 +404,22 @@ video {
 }
 
 .error-title {
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
-  color: #ff4444;
+  color: #E24B4A;
   margin-bottom: 8px;
+  letter-spacing: 0.01em;
 }
 
 .error-message {
-  color: rgba(255,255,255,0.8);
+  color: #A39E94;
   max-width: 400px;
+  letter-spacing: 0.01em;
 }
 
 .spinner {
-  border: 3px solid rgba(0,255,255,0.2);
-  border-top-color: #00ffff;
+  border: 3px solid rgba(212, 165, 116, 0.2);
+  border-top-color: #D4A574;
   border-radius: 50%;
   width: 40px;
   height: 40px;
@@ -569,7 +619,7 @@ class GestureVideoPlayer extends HTMLElement {
         
         <div class="enable-gate">
           <div>
-            <div class="enable-gate-title">✋ Hand Control Available</div>
+            <div class="enable-gate-title">Hand Control Available</div>
             <div class="enable-gate-text">
               Control playback with gestures. Camera stays local—no data uploaded.
             </div>
@@ -1260,7 +1310,7 @@ class GestureVideoPlayer extends HTMLElement {
         const handedness = results.handednesses?.[i]?.[0];
         
         // Draw connections
-        ctx.strokeStyle = '#00ffff';
+        ctx.strokeStyle = '#D4A574';
         ctx.lineWidth = 2;
         
         const connections = [
@@ -1282,7 +1332,7 @@ class GestureVideoPlayer extends HTMLElement {
         });
         
         // Draw points
-        ctx.fillStyle = '#00ffff';
+        ctx.fillStyle = '#D4A574';
         landmarks.forEach(point => {
           ctx.beginPath();
           ctx.arc(point.x * canvas.width, point.y * canvas.height, 3, 0, 2 * Math.PI);
