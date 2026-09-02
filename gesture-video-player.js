@@ -1310,7 +1310,7 @@ class GestureVideoPlayer extends HTMLElement {
         const handedness = results.handednesses?.[i]?.[0];
         
         // Draw connections
-        ctx.strokeStyle = '#D4A574';
+        ctx.strokeStyle = '#22E06C';
         ctx.lineWidth = 2;
         
         const connections = [
@@ -1332,7 +1332,7 @@ class GestureVideoPlayer extends HTMLElement {
         });
         
         // Draw points
-        ctx.fillStyle = '#D4A574';
+        ctx.fillStyle = '#4AFF90';
         landmarks.forEach(point => {
           ctx.beginPath();
           ctx.arc(point.x * canvas.width, point.y * canvas.height, 3, 0, 2 * Math.PI);
