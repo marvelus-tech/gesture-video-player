@@ -547,7 +547,7 @@ class GestureVideoPlayer extends HTMLElement {
     root.innerHTML = `
       <div class="stage">
         <slot name="media">
-          <video playsinline crossorigin="anonymous"></video>
+          <video playsinline crossorigin="anonymous" preload="metadata"></video>
         </slot>
         
         <div class="controls">

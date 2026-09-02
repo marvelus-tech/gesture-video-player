@@ -206,53 +206,32 @@
     .video-source {
       max-width: 1200px;
       margin: 0 auto 20px;
-      display: flex;
-      align-items: center;
-      gap: 12px;
+      text-align: center;
       font-size: 13px;
       color: #A39E94;
       letter-spacing: 0.01em;
     }
     
-    .video-source-label {
-      color: #F4F1EA;
-    }
-    
-    .video-source-btn {
-      background: transparent;
-      border: 1px solid #D4A574;
-      color: #D4A574;
-      padding: 6px 16px;
-      border-radius: 999px;
+    .video-source-link {
+      color: #A39E94;
+      text-decoration: underline;
       cursor: pointer;
-      font-size: 12px;
-      font-weight: 500;
-      letter-spacing: 0.02em;
-      transition: background 160ms cubic-bezier(0.22, 1, 0.32, 1),
-                  transform 160ms cubic-bezier(0.22, 1, 0.32, 1);
-      font-family: 'IBM Plex Sans', sans-serif;
+      transition: color 160ms cubic-bezier(0.22, 1, 0.32, 1);
     }
     
-    .video-source-btn:hover {
-      background: rgba(212, 165, 116, 0.08);
-    }
-    
-    .video-source-btn:active {
-      transform: scale(0.96);
-      transition-duration: 80ms;
+    .video-source-link:hover {
+      color: #F4F1EA;
     }
     
     .video-source-filename {
       color: #F4F1EA;
-      max-width: 300px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
     }
     
     .video-source-error {
       color: #E24B4A;
       font-size: 12px;
+      display: block;
+      margin-top: 4px;
     }
     
     #video-source-input {
@@ -304,11 +283,8 @@
     </div>
     
     <div class="video-source" id="video-source-control">
-      <span class="video-source-label">Video:</span>
-      <button class="video-source-btn" id="pick-video-btn">Your video</button>
+      <span id="video-source-status">Watching the sample. <span class="video-source-link" id="pick-video-link">Replace with your own video</span></span>
       <input type="file" id="video-source-input" accept="video/*">
-      <span class="video-source-filename" id="video-filename"></span>
-      <button class="video-source-btn" id="reset-video-btn" style="display: none;">Default video</button>
       <span class="video-source-error" id="video-error"></span>
     </div>
     
@@ -370,10 +346,9 @@
     import './gesture-video-player.js';
     
     const player = document.getElementById('player');
-    const pickBtn = document.getElementById('pick-video-btn');
+    const pickLink = document.getElementById('pick-video-link');
     const fileInput = document.getElementById('video-source-input');
-    const filenameDisplay = document.getElementById('video-filename');
-    const resetBtn = document.getElementById('reset-video-btn');
+    const statusDisplay = document.getElementById('video-source-status');
     const errorDisplay = document.getElementById('video-error');
     
     let currentObjectURL = null;
@@ -387,8 +362,8 @@
       }
     }
     
-    // Pick video button
-    pickBtn.addEventListener('click', () => {
+    // Pick video link
+    pickLink.addEventListener('click', () => {
       fileInput.click();
     });
     
@@ -405,23 +380,29 @@
       // Create new object URL
       currentObjectURL = URL.createObjectURL(file);
       
-      // Update player
+      // Update player and load
       player.setAttribute('src', currentObjectURL);
-      
-      // Update UI
-      filenameDisplay.textContent = file.name;
-      pickBtn.style.display = 'none';
-      resetBtn.style.display = 'inline-block';
-      
-      // Listen for error on the video element
       const videoEl = player.getVideoElement();
       if (videoEl) {
+        videoEl.load();
+        
+        // Listen for error only on blob URLs
         const errorHandler = () => {
-          errorDisplay.textContent = 'Format not supported';
-          resetToDefault();
-          videoEl.removeEventListener('error', errorHandler);
+          if (videoEl.src === currentObjectURL) {
+            errorDisplay.textContent = 'Format not supported';
+            resetToDefault();
+          }
         };
         videoEl.addEventListener('error', errorHandler, { once: true });
+      }
+      
+      // Update UI
+      statusDisplay.innerHTML = `Playing <span class="video-source-filename">${file.name}</span>. <span class="video-source-link" id="reset-video-link">Use sample video</span>`;
+      
+      // Wire reset link
+      const resetLink = document.getElementById('reset-video-link');
+      if (resetLink) {
+        resetLink.addEventListener('click', resetToDefault);
       }
       
       // Reset file input
@@ -432,20 +413,25 @@
     function resetToDefault() {
       revokeCurrentURL();
       player.setAttribute('src', DEFAULT_VIDEO);
-      filenameDisplay.textContent = '';
-      pickBtn.style.display = 'inline-block';
-      resetBtn.style.display = 'none';
+      const videoEl = player.getVideoElement();
+      if (videoEl) {
+        videoEl.load();
+      }
+      statusDisplay.innerHTML = 'Watching the sample. <span class="video-source-link" id="pick-video-link">Replace with your own video</span>';
       errorDisplay.textContent = '';
+      
+      // Re-wire pick link
+      const newPickLink = document.getElementById('pick-video-link');
+      if (newPickLink) {
+        newPickLink.addEventListener('click', () => fileInput.click());
+      }
     }
-    
-    resetBtn.addEventListener('click', resetToDefault);
     
     // Cleanup on page unload
     window.addEventListener('pagehide', revokeCurrentURL);
     
     // Parse query parameters
     const params = new URLSearchParams(window.location.search);
-    const player = document.getElementById('player');
     
     // Apply parameters if provided
     if (params.has('src')) {
