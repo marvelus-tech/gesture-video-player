@@ -579,41 +579,41 @@ class GestureVideoPlayer extends HTMLElement {
             <div class="coach-card">
               <div class="coach-emoji">✋</div>
               <div class="coach-gesture">Open Palm</div>
-              <div class="coach-action">Play</div>
+              <div class="coach-action">Hold flat hand. Play.</div>
             </div>
             <div class="coach-card">
               <div class="coach-emoji">✊</div>
               <div class="coach-gesture">Closed Fist</div>
-              <div class="coach-action">Pause</div>
+              <div class="coach-action">Hold fist. Pause.</div>
             </div>
             <div class="coach-card">
               <div class="coach-emoji">✌️</div>
               <div class="coach-gesture">Victory</div>
-              <div class="coach-action">Speed Up</div>
+              <div class="coach-action">Peace sign, thumb tucked. Speed up.</div>
             </div>
             <div class="coach-card">
               <div class="coach-emoji">🤟</div>
-              <div class="coach-gesture">ILoveYou</div>
-              <div class="coach-action">Speed Down</div>
+              <div class="coach-gesture">I Love You</div>
+              <div class="coach-action">Thumb, index, pinky. Speed down.</div>
             </div>
             <div class="coach-card">
               <div class="coach-emoji">☝️</div>
               <div class="coach-gesture">Pointing Up</div>
-              <div class="coach-action">Skip +10s</div>
+              <div class="coach-action">Index only. Skip +10s.</div>
             </div>
             <div class="coach-card">
               <div class="coach-emoji">🤏↔️</div>
               <div class="coach-gesture">Pinch + Left/Right</div>
-              <div class="coach-action">Seek</div>
+              <div class="coach-action">Pinch, then move across the frame. Left = start, right = end.</div>
             </div>
             <div class="coach-card">
               <div class="coach-emoji">🤏↕️</div>
               <div class="coach-gesture">Pinch + Up/Down</div>
-              <div class="coach-action">Volume</div>
+              <div class="coach-action">Pinch, then move vertically. Higher = louder.</div>
             </div>
           </div>
           <div class="coach-footer">
-            Pinch + move in one direction (axis locks automatically)
+            Hold poses ~half a second. Pinch first, then move — the first direction locks.
           </div>
         </div>
         
@@ -621,7 +621,7 @@ class GestureVideoPlayer extends HTMLElement {
           <div>
             <div class="enable-gate-title">Hand Control Available</div>
             <div class="enable-gate-text">
-              Control playback with gestures. Camera stays local—no data uploaded.
+              Enable, then hold a pose or pinch and move. Camera stays on this device.
             </div>
           </div>
           <button class="enable-gate-btn">Enable</button>

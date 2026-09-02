@@ -98,7 +98,7 @@
       cursor: pointer;
       user-select: none;
       padding: 12px;
-      margin: -12px -12px 12px;
+      margin: -12px -12px 20px;
       border-radius: 16px;
       transition: background 160ms cubic-bezier(0.22, 1, 0.32, 1);
     }
@@ -117,6 +117,14 @@
       font-weight: 600;
       color: #F4F1EA;
       letter-spacing: 0.01em;
+    }
+    
+    .legend-setup {
+      font-size: 13px;
+      color: #A39E94;
+      line-height: 1.5;
+      letter-spacing: 0.01em;
+      margin-bottom: 16px;
     }
     
     .legend-toggle {
@@ -145,8 +153,9 @@
     
     .legend-grid {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      grid-template-columns: repeat(2, 1fr);
       gap: 12px;
+      margin-bottom: 16px;
     }
     
     .legend-item {
@@ -174,6 +183,14 @@
     .legend-action {
       font-size: 12px;
       color: #A39E94;
+      line-height: 1.4;
+      letter-spacing: 0.01em;
+    }
+    
+    .legend-note {
+      font-size: 12px;
+      color: #A39E94;
+      line-height: 1.4;
       letter-spacing: 0.01em;
     }
     
@@ -236,35 +253,41 @@
         <button class="legend-toggle" aria-label="Toggle legend">▲</button>
       </div>
       <div class="legend-content">
+        <div class="legend-setup">
+          Enable the camera first. Hold a pose for about half a second. For seek and volume, pinch thumb to index, then move your hand — the first direction sticks.
+        </div>
         <div class="legend-grid">
           <div class="legend-item">
-            <div class="legend-gesture">Open Palm</div>
-            <div class="legend-action">Play video</div>
+            <div class="legend-gesture">Open palm</div>
+            <div class="legend-action">Face the camera with a flat open hand and hold. Plays.</div>
           </div>
           <div class="legend-item">
-            <div class="legend-gesture">Closed Fist</div>
-            <div class="legend-action">Pause video</div>
+            <div class="legend-gesture">Closed fist</div>
+            <div class="legend-action">Make a fist and hold. Pauses.</div>
           </div>
           <div class="legend-item">
-            <div class="legend-gesture">Victory Sign</div>
-            <div class="legend-action">Increase playback speed</div>
+            <div class="legend-gesture">Victory (peace)</div>
+            <div class="legend-action">Index and middle up; thumb and the other fingers tucked. Hold. Speeds up one step.</div>
           </div>
           <div class="legend-item">
-            <div class="legend-gesture">ILoveYou Sign</div>
-            <div class="legend-action">Decrease playback speed</div>
+            <div class="legend-gesture">I love you</div>
+            <div class="legend-action">Thumb, index, and pinky out; middle and ring folded. Hold. Slows down one step.</div>
           </div>
           <div class="legend-item">
-            <div class="legend-gesture">Pointing Up</div>
-            <div class="legend-action">Skip forward 10 seconds</div>
+            <div class="legend-gesture">Pointing up</div>
+            <div class="legend-action">Only the index finger up, thumb tucked. Hold. Skips forward 10 seconds.</div>
           </div>
           <div class="legend-item">
-            <div class="legend-gesture">Pinch + Left/Right</div>
-            <div class="legend-action">Seek video</div>
+            <div class="legend-gesture">Pinch, then move left or right</div>
+            <div class="legend-action">Touch thumb to index, then move your hand across the frame. Left is the start of the video, right is the end. Open the pinch to stop.</div>
           </div>
           <div class="legend-item">
-            <div class="legend-gesture">Pinch + Up/Down</div>
-            <div class="legend-action">Adjust volume</div>
+            <div class="legend-gesture">Pinch, then move up or down</div>
+            <div class="legend-action">Same pinch, then move your hand vertically. Higher is louder. Open the pinch to stop.</div>
           </div>
+        </div>
+        <div class="legend-note">
+          Pose commands wait a beat between triggers. While you are pinching, poses are ignored.
         </div>
       </div>
     </div>
