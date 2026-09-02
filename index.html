@@ -203,6 +203,62 @@
       letter-spacing: 0.01em;
     }
     
+    .video-source {
+      max-width: 1200px;
+      margin: 0 auto 20px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      font-size: 13px;
+      color: #A39E94;
+      letter-spacing: 0.01em;
+    }
+    
+    .video-source-label {
+      color: #F4F1EA;
+    }
+    
+    .video-source-btn {
+      background: transparent;
+      border: 1px solid #D4A574;
+      color: #D4A574;
+      padding: 6px 16px;
+      border-radius: 999px;
+      cursor: pointer;
+      font-size: 12px;
+      font-weight: 500;
+      letter-spacing: 0.02em;
+      transition: background 160ms cubic-bezier(0.22, 1, 0.32, 1),
+                  transform 160ms cubic-bezier(0.22, 1, 0.32, 1);
+      font-family: 'IBM Plex Sans', sans-serif;
+    }
+    
+    .video-source-btn:hover {
+      background: rgba(212, 165, 116, 0.08);
+    }
+    
+    .video-source-btn:active {
+      transform: scale(0.96);
+      transition-duration: 80ms;
+    }
+    
+    .video-source-filename {
+      color: #F4F1EA;
+      max-width: 300px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    
+    .video-source-error {
+      color: #E24B4A;
+      font-size: 12px;
+    }
+    
+    #video-source-input {
+      display: none;
+    }
+    
     footer {
       text-align: center;
       margin-top: 60px;
@@ -245,6 +301,15 @@
   <div class="container">
     <div class="player-wrapper">
       <gesture-video-player id="player" src="demo.mp4"></gesture-video-player>
+    </div>
+    
+    <div class="video-source" id="video-source-control">
+      <span class="video-source-label">Video:</span>
+      <button class="video-source-btn" id="pick-video-btn">Your video</button>
+      <input type="file" id="video-source-input" accept="video/*">
+      <span class="video-source-filename" id="video-filename"></span>
+      <button class="video-source-btn" id="reset-video-btn" style="display: none;">Default video</button>
+      <span class="video-source-error" id="video-error"></span>
     </div>
     
     <div class="legend" id="legend">
@@ -303,6 +368,80 @@
   
   <script type="module">
     import './gesture-video-player.js';
+    
+    const player = document.getElementById('player');
+    const pickBtn = document.getElementById('pick-video-btn');
+    const fileInput = document.getElementById('video-source-input');
+    const filenameDisplay = document.getElementById('video-filename');
+    const resetBtn = document.getElementById('reset-video-btn');
+    const errorDisplay = document.getElementById('video-error');
+    
+    let currentObjectURL = null;
+    const DEFAULT_VIDEO = 'demo.mp4';
+    
+    // Revoke old blob URL if exists
+    function revokeCurrentURL() {
+      if (currentObjectURL) {
+        URL.revokeObjectURL(currentObjectURL);
+        currentObjectURL = null;
+      }
+    }
+    
+    // Pick video button
+    pickBtn.addEventListener('click', () => {
+      fileInput.click();
+    });
+    
+    // Handle file selection
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      
+      errorDisplay.textContent = '';
+      
+      // Revoke previous object URL
+      revokeCurrentURL();
+      
+      // Create new object URL
+      currentObjectURL = URL.createObjectURL(file);
+      
+      // Update player
+      player.setAttribute('src', currentObjectURL);
+      
+      // Update UI
+      filenameDisplay.textContent = file.name;
+      pickBtn.style.display = 'none';
+      resetBtn.style.display = 'inline-block';
+      
+      // Listen for error on the video element
+      const videoEl = player.getVideoElement();
+      if (videoEl) {
+        const errorHandler = () => {
+          errorDisplay.textContent = 'Format not supported';
+          resetToDefault();
+          videoEl.removeEventListener('error', errorHandler);
+        };
+        videoEl.addEventListener('error', errorHandler, { once: true });
+      }
+      
+      // Reset file input
+      fileInput.value = '';
+    });
+    
+    // Reset to default
+    function resetToDefault() {
+      revokeCurrentURL();
+      player.setAttribute('src', DEFAULT_VIDEO);
+      filenameDisplay.textContent = '';
+      pickBtn.style.display = 'inline-block';
+      resetBtn.style.display = 'none';
+      errorDisplay.textContent = '';
+    }
+    
+    resetBtn.addEventListener('click', resetToDefault);
+    
+    // Cleanup on page unload
+    window.addEventListener('pagehide', revokeCurrentURL);
     
     // Parse query parameters
     const params = new URLSearchParams(window.location.search);
