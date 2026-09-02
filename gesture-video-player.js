@@ -6,18 +6,22 @@
 // ============================================================================
 export const CONSTANTS = {
   MAX_DETECT_HZ: 30,                    // Maximum hand detection frequency (Hz)
-  PINCH_PALM_RATIO: 0.38,               // Pinch threshold as ratio of palm size
-  EMA_ALPHA: 0.25,                      // Exponential moving average smoothing factor
+  PINCH_ENTER: 0.30,                    // Pinch enter threshold as ratio of palm size
+  PINCH_EXIT: 0.42,                     // Pinch exit threshold (hysteresis, 0.30 * 1.40)
+  EMA_ALPHA: 0.35,                      // Exponential moving average for pinch midpoint
   SEEK_DEADZONE: 0.006,                 // Minimum X movement to register seek (normalized)
-  DISCRETE_HOLD_MS: 400,                // Hold duration to trigger discrete gesture (ms)
+  DISCRETE_HOLD_MS: 150,                // Real dwell duration to trigger discrete gesture (ms)
   DISCRETE_COOLDOWN_MS: 700,            // Cooldown between discrete gestures (ms)
+  PINCH_EXIT_GRACE_MS: 280,             // Ignore discrete gestures after pinch ends (ms)
   NO_HAND_PINCH_EXIT_MS: 400,           // Exit pinch mode after no hand detected (ms)
-  MIN_HANDEDNESS_SCORE: 0.7,            // Minimum confidence for left/right hand
+  MIN_HANDEDNESS_SCORE: 0.7,            // Minimum confidence for discrete gestures only
   MIN_HAND_FRAME_HEIGHT: 0.08,          // Minimum hand height ratio to detect
-  MAJORITY_WINDOW: 5,                   // Frames for gesture majority voting
+  CONSECUTIVE_GESTURE_FRAMES: 4,        // Consecutive frames needed for gesture recognition
+  MAJORITY_WINDOW: 5,                   // Frames for gesture majority voting (unused, kept for compat)
   POINTING_SEEK_SEC: 10,                // Seconds to skip with Pointing_Up gesture
   KEYBOARD_SEEK_SEC: 5,                 // Seconds to skip with arrow keys
   PLAYBACK_RATES: [0.5, 0.75, 1, 1.25, 1.5, 2], // Available playback rate notches
+  PINCH_AXIS_THRESHOLD: 0.03,           // Movement threshold to lock axis
   HUD_MAX_PX: 200,                      // Maximum HUD canvas dimension (px)
   COACH_STORAGE_KEY: 'gep-coach-v1',    // LocalStorage key for coach dismissal
   MEDIAPIPE_CDN_BASE: 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18/wasm',
@@ -461,12 +465,16 @@ class GestureVideoPlayer extends HTMLElement {
     this._lastDiscreteTime = 0;
     this._discreteHoldStart = null;
     this._discreteHoldGesture = null;
+    this._consecutiveGestureCount = 0;
+    this._lastConsecutiveGesture = null;
     this._isPinching = false;
+    this._pinchExitTime = 0;
     this._pinchBaselineX = null;
     this._pinchBaselineY = null;
     this._pinchDominantAxis = null; // 'horizontal' or 'vertical'
     this._pinchAxisThreshold = 0.03; // Movement threshold to lock axis
-    this._controlSmooth = null;
+    this._pinchMidpointX = null;
+    this._pinchMidpointY = null;
     this._lastHandTime = Date.now();
     this._noPinchExitTimer = null;
     
@@ -977,7 +985,7 @@ class GestureVideoPlayer extends HTMLElement {
           delegate: 'GPU'
         },
         runningMode: 'VIDEO',
-        numHands: parseInt(this.getAttribute('max-hands') || '2'),
+        numHands: parseInt(this.getAttribute('max-hands') || '1'),
         minHandDetectionConfidence: 0.5,
         minHandPresenceConfidence: 0.5,
         minTrackingConfidence: 0.5
@@ -1047,10 +1055,15 @@ class GestureVideoPlayer extends HTMLElement {
       // No hands detected - reset pinch state after timeout
       const timeSinceHand = now - this._lastHandTime;
       if (timeSinceHand > CONSTANTS.NO_HAND_PINCH_EXIT_MS) {
-        this._isPinching = false;
+        if (this._isPinching) {
+          this._isPinching = false;
+          this._pinchExitTime = now;
+        }
         this._pinchDominantAxis = null;
         this._pinchBaselineX = null;
         this._pinchBaselineY = null;
+        this._pinchMidpointX = null;
+        this._pinchMidpointY = null;
       }
       return;
     }
@@ -1062,8 +1075,6 @@ class GestureVideoPlayer extends HTMLElement {
       const landmarks = results.landmarks[i];
       const handedness = results.handednesses?.[i]?.[0];
       
-      if (!handedness || handedness.score < CONSTANTS.MIN_HANDEDNESS_SCORE) continue;
-      
       // Check hand size (filter out distant/tiny hands)
       const wrist = landmarks[0];
       const middleMCP = landmarks[9];
@@ -1072,43 +1083,71 @@ class GestureVideoPlayer extends HTMLElement {
       const handHeight = Math.max(...landmarks.map(l => l.y)) - Math.min(...landmarks.map(l => l.y));
       if (handHeight < CONSTANTS.MIN_HAND_FRAME_HEIGHT) continue;
       
-      // Detect pinch
+      // Always process pinch (regardless of handedness score)
       const thumb = landmarks[4];
       const index = landmarks[8];
       const pinchDist = Math.hypot(index.x - thumb.x, index.y - thumb.y);
-      const isPinching = pinchDist < (CONSTANTS.PINCH_PALM_RATIO * palmSize);
       
-      if (isPinching) {
-        // Use index tip position for control (palm center alternative: wrist midpoint)
+      // Check if hand is a fist (all fingers curled)
+      const fingers = this._getFingerStates(landmarks);
+      const isFist = fingers.every(f => !f);
+      
+      // Pinch hysteresis
+      let shouldEnterPinch = false;
+      let shouldExitPinch = false;
+      
+      if (!this._isPinching) {
+        // Enter: pinch AND not fist
+        shouldEnterPinch = pinchDist < (CONSTANTS.PINCH_ENTER * palmSize) && !isFist;
+      } else {
+        // Exit: distance exceeds exit threshold
+        shouldExitPinch = pinchDist > (CONSTANTS.PINCH_EXIT * palmSize);
+      }
+      
+      if (shouldEnterPinch) {
+        // Pinch start - record baseline
+        this._isPinching = true;
         const controlX = index.x;
         const controlY = 1 - index.y; // Invert Y: hand up = higher value = louder
-        
-        if (!this._isPinching) {
-          // Pinch start - record baseline
-          this._isPinching = true;
-          this._pinchBaselineX = controlX;
-          this._pinchBaselineY = controlY;
-          this._pinchDominantAxis = null;
-          this._controlSmooth = null;
-        }
-        
-        // Axis-based control with dominant-axis lock
-        this._handleAxisPinch(controlX, controlY);
-        
-        // Only process first valid pinch per frame
-        break;
-      } else if (this._isPinching) {
+        this._pinchBaselineX = controlX;
+        this._pinchBaselineY = controlY;
+        this._pinchDominantAxis = null;
+        this._pinchMidpointX = controlX;
+        this._pinchMidpointY = controlY;
+      } else if (shouldExitPinch) {
         // Pinch ended
         this._isPinching = false;
+        this._pinchExitTime = now;
         this._pinchDominantAxis = null;
         this._pinchBaselineX = null;
         this._pinchBaselineY = null;
+        this._pinchMidpointX = null;
+        this._pinchMidpointY = null;
+      } else if (this._isPinching) {
+        // Continue pinch - smooth midpoint with EMA
+        const controlX = index.x;
+        const controlY = 1 - index.y;
+        
+        this._pinchMidpointX = CONSTANTS.EMA_ALPHA * controlX + (1 - CONSTANTS.EMA_ALPHA) * this._pinchMidpointX;
+        this._pinchMidpointY = CONSTANTS.EMA_ALPHA * controlY + (1 - CONSTANTS.EMA_ALPHA) * this._pinchMidpointY;
+        
+        // Axis-based control with smoothed midpoint
+        this._handleAxisPinch(this._pinchMidpointX, this._pinchMidpointY);
       }
       
-      // Detect discrete gestures (only if not pinching)
-      if (!isPinching) {
+      // Detect discrete gestures (only if not pinching AND outside grace period AND handedness OK)
+      const timeSincePinchExit = now - this._pinchExitTime;
+      const canRunDiscrete = !this._isPinching && 
+                            timeSincePinchExit > CONSTANTS.PINCH_EXIT_GRACE_MS &&
+                            handedness && 
+                            handedness.score >= CONSTANTS.MIN_HANDEDNESS_SCORE;
+      
+      if (canRunDiscrete) {
         this._detectDiscreteGestures(landmarks, handedness);
       }
+      
+      // Only process first hand
+      break;
     }
   }
 
@@ -1135,54 +1174,32 @@ class GestureVideoPlayer extends HTMLElement {
       // Seek control (horizontal movement)
       if (!this._video.duration) return;
       
-      if (this._controlSmooth === null) {
-        this._controlSmooth = x;
-      }
-      
-      // Apply EMA smoothing
-      this._controlSmooth = CONSTANTS.EMA_ALPHA * x + (1 - CONSTANTS.EMA_ALPHA) * this._controlSmooth;
-      
-      const delta = x - this._controlSmooth;
+      const delta = x - this._pinchBaselineX;
       if (Math.abs(delta) < CONSTANTS.SEEK_DEADZONE) return;
       
       // Map X position to video time
-      const targetTime = this._controlSmooth * this._video.duration;
+      const targetTime = x * this._video.duration;
       this._video.currentTime = Math.max(0, Math.min(this._video.duration, targetTime));
       
     } else if (this._pinchDominantAxis === 'vertical') {
       // Volume control (vertical movement, already inverted)
-      if (this._controlSmooth === null) {
-        this._controlSmooth = y;
-      }
-      
-      // Apply EMA smoothing
-      this._controlSmooth = CONSTANTS.EMA_ALPHA * y + (1 - CONSTANTS.EMA_ALPHA) * this._controlSmooth;
-      
-      this._video.volume = Math.max(0, Math.min(1, this._controlSmooth));
+      this._video.volume = Math.max(0, Math.min(1, y));
       this._video.muted = false;
     }
   }
 
   _detectDiscreteGestures(landmarks, handedness) {
-    // Simple heuristic gesture detection
-    // Production should use MediaPipe GestureRecognizer
+    const now = Date.now();
     
+    // Classify pose with most-specific-first order
     const fingers = this._getFingerStates(landmarks);
     let gesture = null;
     
-    // Open palm (all fingers extended)
-    if (fingers.every(f => f)) {
-      gesture = 'Open_Palm';
-    }
-    // Closed fist (all fingers closed)
-    else if (fingers.every(f => !f)) {
-      gesture = 'Closed_Fist';
-    }
-    // ILoveYou (thumb + index + pinky extended, middle + ring curled)
-    else if (fingers[0] && fingers[1] && !fingers[2] && !fingers[3] && fingers[4]) {
+    // ILoveYou (thumb + index + pinky extended, middle + ring curled) - most specific
+    if (fingers[0] && fingers[1] && !fingers[2] && !fingers[3] && fingers[4]) {
       gesture = 'ILoveYou';
     }
-    // Victory (index and middle up, others down)
+    // Victory (index and middle up, others down) - before pointing
     else if (!fingers[0] && fingers[1] && fingers[2] && !fingers[3] && !fingers[4]) {
       gesture = 'Victory';
     }
@@ -1190,9 +1207,58 @@ class GestureVideoPlayer extends HTMLElement {
     else if (!fingers[0] && fingers[1] && !fingers[2] && !fingers[3] && !fingers[4]) {
       gesture = 'Pointing_Up';
     }
+    // Closed fist (all fingers closed)
+    else if (fingers.every(f => !f)) {
+      gesture = 'Closed_Fist';
+    }
+    // Open palm (all fingers extended) - least specific
+    else if (fingers.every(f => f)) {
+      gesture = 'Open_Palm';
+    }
     
-    if (gesture) {
-      this._bufferGesture(gesture);
+    if (!gesture) {
+      // No recognized gesture, reset
+      this._consecutiveGestureCount = 0;
+      this._lastConsecutiveGesture = null;
+      this._discreteHoldStart = null;
+      this._discreteHoldGesture = null;
+      return;
+    }
+    
+    // Consecutive-N: only count runs of same label
+    if (gesture === this._lastConsecutiveGesture) {
+      this._consecutiveGestureCount++;
+    } else {
+      this._consecutiveGestureCount = 1;
+      this._lastConsecutiveGesture = gesture;
+      this._discreteHoldStart = null;
+      this._discreteHoldGesture = null;
+    }
+    
+    // Need CONSECUTIVE_GESTURE_FRAMES in a row
+    if (this._consecutiveGestureCount >= CONSTANTS.CONSECUTIVE_GESTURE_FRAMES) {
+      // Start dwell timer if not already started
+      if (!this._discreteHoldStart) {
+        this._discreteHoldStart = now;
+        this._discreteHoldGesture = gesture;
+      }
+      
+      // Check if held long enough
+      if (gesture === this._discreteHoldGesture && 
+          (now - this._discreteHoldStart) >= CONSTANTS.DISCRETE_HOLD_MS) {
+        
+        // Check cooldown
+        if ((now - this._lastDiscreteTime) >= CONSTANTS.DISCRETE_COOLDOWN_MS) {
+          this._handleDiscreteGesture(gesture);
+          this._lastDiscreteTime = now;
+          
+          // Reset state after firing
+          this._consecutiveGestureCount = 0;
+          this._lastConsecutiveGesture = null;
+          this._discreteHoldStart = null;
+          this._discreteHoldGesture = null;
+        }
+      }
     }
   }
 
@@ -1216,40 +1282,7 @@ class GestureVideoPlayer extends HTMLElement {
     });
   }
 
-  _bufferGesture(gesture) {
-    const now = Date.now();
-    
-    // Add to buffer
-    this._gestureBuffer.push({ gesture, time: now });
-    
-    // Keep only recent frames
-    this._gestureBuffer = this._gestureBuffer.filter(
-      g => now - g.time < CONSTANTS.DISCRETE_HOLD_MS
-    );
-    
-    // Majority voting
-    if (this._gestureBuffer.length >= CONSTANTS.MAJORITY_WINDOW) {
-      const counts = {};
-      this._gestureBuffer.forEach(g => {
-        counts[g.gesture] = (counts[g.gesture] || 0) + 1;
-      });
-      
-      const majority = Object.keys(counts).reduce((a, b) => 
-        counts[a] > counts[b] ? a : b
-      );
-      
-      if (counts[majority] >= CONSTANTS.MAJORITY_WINDOW) {
-        this._handleDiscreteGesture(majority);
-      }
-    }
-  }
-
   _handleDiscreteGesture(gesture) {
-    const now = Date.now();
-    
-    // Check cooldown
-    if (now - this._lastDiscreteTime < CONSTANTS.DISCRETE_COOLDOWN_MS) return;
-    
     if (!this._video) return;
     
     switch (gesture) {
@@ -1275,9 +1308,6 @@ class GestureVideoPlayer extends HTMLElement {
         );
         break;
     }
-    
-    this._lastDiscreteTime = now;
-    this._gestureBuffer = [];
     
     this.dispatchEvent(new CustomEvent('gep-gesture', { 
       composed: true,
