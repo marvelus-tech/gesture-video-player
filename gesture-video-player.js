@@ -17,8 +17,10 @@ export const CONSTANTS = {
   MIN_HANDEDNESS_SCORE: 0.7,            // Minimum confidence for discrete gestures only
   MIN_HAND_FRAME_HEIGHT: 0.08,          // Minimum hand height ratio to detect
   CONSECUTIVE_GESTURE_FRAMES: 4,        // Consecutive frames needed for gesture recognition
+  FLICK_VELOCITY_THRESHOLD: 0.15,       // Minimum horizontal movement for flick
+  FLICK_TIME_WINDOW_MS: 180,            // Time window for flick detection (ms)
+  FLICK_SKIP_SEC: 10,                   // Seconds to skip with horizontal flick
   MAJORITY_WINDOW: 5,                   // Frames for gesture majority voting (unused, kept for compat)
-  POINTING_SEEK_SEC: 10,                // Seconds to skip with Pointing_Up gesture
   KEYBOARD_SEEK_SEC: 5,                 // Seconds to skip with arrow keys
   PLAYBACK_RATES: [0.5, 0.75, 1, 1.25, 1.5, 2], // Available playback rate notches
   PINCH_AXIS_THRESHOLD: 0.03,           // Movement threshold to lock axis
@@ -478,6 +480,10 @@ class GestureVideoPlayer extends HTMLElement {
     this._lastHandTime = Date.now();
     this._noPinchExitTimer = null;
     
+    // Flick detection
+    this._flickStartX = null;
+    this._flickStartTime = null;
+    
     this._root = null;
   }
 
@@ -587,41 +593,36 @@ class GestureVideoPlayer extends HTMLElement {
             <div class="coach-card">
               <div class="coach-emoji">✋</div>
               <div class="coach-gesture">Open Palm</div>
-              <div class="coach-action">Hold flat hand. Play.</div>
+              <div class="coach-action">Hold flat hand. Toggle play/pause.</div>
             </div>
             <div class="coach-card">
               <div class="coach-emoji">✊</div>
-              <div class="coach-gesture">Closed Fist</div>
-              <div class="coach-action">Hold fist. Pause.</div>
+              <div class="coach-gesture">Fist</div>
+              <div class="coach-action">Rest / cancel. No action.</div>
             </div>
             <div class="coach-card">
-              <div class="coach-emoji">✌️</div>
-              <div class="coach-gesture">Victory</div>
-              <div class="coach-action">Peace sign, thumb tucked. Speed up.</div>
+              <div class="coach-emoji">👉</div>
+              <div class="coach-gesture">Flick Right</div>
+              <div class="coach-action">Quick swipe right. Skip +10s.</div>
             </div>
             <div class="coach-card">
-              <div class="coach-emoji">🤟</div>
-              <div class="coach-gesture">I Love You</div>
-              <div class="coach-action">Thumb, index, pinky. Speed down.</div>
-            </div>
-            <div class="coach-card">
-              <div class="coach-emoji">☝️</div>
-              <div class="coach-gesture">Pointing Up</div>
-              <div class="coach-action">Index only. Skip +10s.</div>
+              <div class="coach-emoji">👈</div>
+              <div class="coach-gesture">Flick Left</div>
+              <div class="coach-action">Quick swipe left. Skip -10s.</div>
             </div>
             <div class="coach-card">
               <div class="coach-emoji">🤏↔️</div>
               <div class="coach-gesture">Pinch + Left/Right</div>
-              <div class="coach-action">Pinch, then move across the frame. Left = start, right = end.</div>
+              <div class="coach-action">Thumb to index, fingers up, then move. Left = start, right = end.</div>
             </div>
             <div class="coach-card">
               <div class="coach-emoji">🤏↕️</div>
               <div class="coach-gesture">Pinch + Up/Down</div>
-              <div class="coach-action">Pinch, then move vertically. Higher = louder.</div>
+              <div class="coach-action">Same pinch, move vertically. Higher = louder.</div>
             </div>
           </div>
           <div class="coach-footer">
-            Hold poses ~half a second. Pinch first, then move — the first direction locks.
+            Hold palm still ~half a second. Speed control is the 1x button. Pinch needs fingers extended.
           </div>
         </div>
         
@@ -1065,6 +1066,9 @@ class GestureVideoPlayer extends HTMLElement {
         this._pinchMidpointX = null;
         this._pinchMidpointY = null;
       }
+      // Reset flick tracking
+      this._flickStartX = null;
+      this._flickStartTime = null;
       return;
     }
     
@@ -1083,22 +1087,28 @@ class GestureVideoPlayer extends HTMLElement {
       const handHeight = Math.max(...landmarks.map(l => l.y)) - Math.min(...landmarks.map(l => l.y));
       if (handHeight < CONSTANTS.MIN_HAND_FRAME_HEIGHT) continue;
       
+      // Get finger states
+      const fingers = this._getFingerStates(landmarks);
+      const isFist = fingers.every(f => !f);
+      
       // Always process pinch (regardless of handedness score)
       const thumb = landmarks[4];
       const index = landmarks[8];
       const pinchDist = Math.hypot(index.x - thumb.x, index.y - thumb.y);
       
-      // Check if hand is a fist (all fingers curled)
-      const fingers = this._getFingerStates(landmarks);
-      const isFist = fingers.every(f => !f);
+      // icaro Safe Mode: pinch enter only if middle+ring+pinky extended
+      const middleExtended = fingers[2];
+      const ringExtended = fingers[3];
+      const pinkyExtended = fingers[4];
+      const safeModePinchOK = middleExtended && ringExtended && pinkyExtended;
       
       // Pinch hysteresis
       let shouldEnterPinch = false;
       let shouldExitPinch = false;
       
       if (!this._isPinching) {
-        // Enter: pinch AND not fist
-        shouldEnterPinch = pinchDist < (CONSTANTS.PINCH_ENTER * palmSize) && !isFist;
+        // Enter: pinch AND safe mode OK (prevents fist-as-volume-down)
+        shouldEnterPinch = pinchDist < (CONSTANTS.PINCH_ENTER * palmSize) && safeModePinchOK;
       } else {
         // Exit: distance exceeds exit threshold
         shouldExitPinch = pinchDist > (CONSTANTS.PINCH_EXIT * palmSize);
@@ -1114,6 +1124,10 @@ class GestureVideoPlayer extends HTMLElement {
         this._pinchDominantAxis = null;
         this._pinchMidpointX = controlX;
         this._pinchMidpointY = controlY;
+        
+        // Reset flick tracking when entering pinch
+        this._flickStartX = null;
+        this._flickStartTime = null;
       } else if (shouldExitPinch) {
         // Pinch ended
         this._isPinching = false;
@@ -1135,15 +1149,26 @@ class GestureVideoPlayer extends HTMLElement {
         this._handleAxisPinch(this._pinchMidpointX, this._pinchMidpointY);
       }
       
-      // Detect discrete gestures (only if not pinching AND outside grace period AND handedness OK)
+      // Detect flick (only if not pinching AND outside grace period)
       const timeSincePinchExit = now - this._pinchExitTime;
+      const canDetectFlick = !this._isPinching && timeSincePinchExit > CONSTANTS.PINCH_EXIT_GRACE_MS;
+      
+      if (canDetectFlick) {
+        this._detectFlick(landmarks, now);
+      } else {
+        // Reset flick tracking during pinch or grace
+        this._flickStartX = null;
+        this._flickStartTime = null;
+      }
+      
+      // Detect discrete gestures (only if not pinching AND outside grace period AND handedness OK)
       const canRunDiscrete = !this._isPinching && 
                             timeSincePinchExit > CONSTANTS.PINCH_EXIT_GRACE_MS &&
                             handedness && 
                             handedness.score >= CONSTANTS.MIN_HANDEDNESS_SCORE;
       
       if (canRunDiscrete) {
-        this._detectDiscreteGestures(landmarks, handedness);
+        this._detectDiscreteGestures(landmarks, fingers, isFist);
       }
       
       // Only process first hand
@@ -1188,31 +1213,81 @@ class GestureVideoPlayer extends HTMLElement {
     }
   }
 
-  _detectDiscreteGestures(landmarks, handedness) {
+  _detectFlick(landmarks, now) {
+    // Track wrist X position for flick detection
+    const wrist = landmarks[0];
+    const currentX = wrist.x;
+    
+    if (this._flickStartX === null) {
+      // Start tracking
+      this._flickStartX = currentX;
+      this._flickStartTime = now;
+      return;
+    }
+    
+    const deltaX = currentX - this._flickStartX;
+    const deltaTime = now - this._flickStartTime;
+    
+    // Check if flick is fast enough
+    if (deltaTime <= CONSTANTS.FLICK_TIME_WINDOW_MS) {
+      // Still within time window, keep tracking
+      if (Math.abs(deltaX) >= CONSTANTS.FLICK_VELOCITY_THRESHOLD) {
+        // Fast horizontal movement detected
+        const direction = deltaX > 0 ? 'right' : 'left';
+        
+        // Check cooldown (shared with discrete gestures)
+        if ((now - this._lastDiscreteTime) >= CONSTANTS.DISCRETE_COOLDOWN_MS) {
+          this._handleFlick(direction);
+          this._lastDiscreteTime = now;
+        }
+        
+        // Reset tracking after flick
+        this._flickStartX = null;
+        this._flickStartTime = null;
+      }
+    } else {
+      // Time window expired, reset tracking
+      this._flickStartX = currentX;
+      this._flickStartTime = now;
+    }
+  }
+
+  _handleFlick(direction) {
+    if (!this._video) return;
+    
+    const skipAmount = direction === 'right' ? CONSTANTS.FLICK_SKIP_SEC : -CONSTANTS.FLICK_SKIP_SEC;
+    this._video.currentTime = Math.max(
+      0,
+      Math.min(this._video.duration, this._video.currentTime + skipAmount)
+    );
+    
+    this.dispatchEvent(new CustomEvent('gep-gesture', { 
+      composed: true,
+      detail: { 
+        name: `Flick_${direction}`,
+        confidence: 0.9,
+        hands: 1
+      }
+    }));
+  }
+
+  _detectDiscreteGestures(landmarks, fingers, isFist) {
     const now = Date.now();
     
-    // Classify pose with most-specific-first order
-    const fingers = this._getFingerStates(landmarks);
+    // Closed fist = delimiter/reset only, no action
+    if (isFist) {
+      this._consecutiveGestureCount = 0;
+      this._lastConsecutiveGesture = null;
+      this._discreteHoldStart = null;
+      this._discreteHoldGesture = null;
+      return;
+    }
+    
+    // Classify pose: only Open_Palm is mapped
     let gesture = null;
     
-    // ILoveYou (thumb + index + pinky extended, middle + ring curled) - most specific
-    if (fingers[0] && fingers[1] && !fingers[2] && !fingers[3] && fingers[4]) {
-      gesture = 'ILoveYou';
-    }
-    // Victory (index and middle up, others down) - before pointing
-    else if (!fingers[0] && fingers[1] && fingers[2] && !fingers[3] && !fingers[4]) {
-      gesture = 'Victory';
-    }
-    // Pointing up (index only)
-    else if (!fingers[0] && fingers[1] && !fingers[2] && !fingers[3] && !fingers[4]) {
-      gesture = 'Pointing_Up';
-    }
-    // Closed fist (all fingers closed)
-    else if (fingers.every(f => !f)) {
-      gesture = 'Closed_Fist';
-    }
-    // Open palm (all fingers extended) - least specific
-    else if (fingers.every(f => f)) {
+    // Open palm (all fingers extended) = play/pause toggle
+    if (fingers.every(f => f)) {
       gesture = 'Open_Palm';
     }
     
@@ -1287,25 +1362,12 @@ class GestureVideoPlayer extends HTMLElement {
     
     switch (gesture) {
       case 'Open_Palm':
-        this._video.play();
-        break;
-      case 'Closed_Fist':
-        this._video.pause();
-        break;
-      case 'Victory':
-        // Increase playback rate one notch
-        this._changePlaybackRate(1);
-        break;
-      case 'ILoveYou':
-        // Decrease playback rate one notch
-        this._changePlaybackRate(-1);
-        break;
-      case 'Pointing_Up':
-        // Skip forward 10 seconds
-        this._video.currentTime = Math.min(
-          this._video.duration,
-          this._video.currentTime + CONSTANTS.POINTING_SEEK_SEC
-        );
+        // Toggle play/pause
+        if (this._video.paused) {
+          this._video.play();
+        } else {
+          this._video.pause();
+        }
         break;
     }
     
